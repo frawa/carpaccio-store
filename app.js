@@ -35,6 +35,32 @@ app.get("/api/1/price.json", function(req, res) {
   res.sendStatus(501)
 });
 
+var monitor = {
+	count: 0,
+	total: 0,
+	prices: {}
+}
+//$http.get("/api/1/monitor.json
+app.get("/api/1/monitor.json", function(req, res) {
+  res.send(monitor)
+});
+
+//$http.get("/api/1/monitorLog.json?total=" + (cart.price * cart.quantity))
+app.get("/api/1/monitorLog.json", function(req, res) {
+  monitor.count++
+	monitor.total += Number(req.query.total)
+	res.send(monitor)
+});
+
+//$http.get("/api/1/monitorPrice.json?name=" + name + "&price=" + price
+app.get("/api/1/monitorPrice.json", function(req, res) {
+	if ( !monitor.prices[req.query.name] ) {
+		monitor.prices[req.query.name] = 0;
+	}
+  monitor.prices[req.query.name] += Number(req.query.price)
+	res.send(monitor)
+});
+
 // serve the files out of ./public as our main files
 app.use(express.static(__dirname + '/public'));
 

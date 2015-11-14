@@ -44,11 +44,51 @@ appServices
       }
     }
   }])
+  .service('MonitorService', ['$http', '$q', function ($http, $q) {
+    return {
+      load: function () {
+        console.info("Loading monitor...");
+        var deferred = $q.defer();
+        $http.get("/api/1/monitor.json")
+          .success(function (data) {
+            deferred.resolve(data);
+          })
+          .error(function () {
+            deferred.reject();
+          });
+        return deferred.promise;
+      },
+      log: function (cart) {
+        console.info("Log cart", cart);
+        var deferred = $q.defer();
+        $http.get("/api/1/monitorLog.json?total=" + (cart.product.price * cart.quantity))
+          .success(function (data) {
+            deferred.resolve(data);
+          })
+          .error(function (error, status) {
+            deferred.reject({ error: error, status: status });
+          });
+        return deferred.promise;
+      },
+      logPrice: function (engine,price) {
+        console.info("Log price", engine, price);
+        var deferred = $q.defer();
+        $http.get("/api/1/monitorPrice.json?name=" + engine.name + "&price=" + price)
+          .success(function (data) {
+            deferred.resolve(data);
+          })
+          .error(function (error, status) {
+            deferred.reject({ error: error, status: status });
+          });
+          return deferred.promise;
+      }
+  }
+  }])
 
 var appControllers = angular.module('appControllers', []);
 appControllers
-  .controller('AppController', ['$scope', 'ProductService', 'PricingService',
-  function ($scope, ProductService, PricingService) {
+  .controller('AppController', ['$scope', 'ProductService', 'PricingService', 'MonitorService',
+  function ($scope, ProductService, PricingService, MonitorService) {
       $scope.data = {
         products: [],
         pricingEngines: [],
@@ -57,7 +97,7 @@ appControllers
           quantity: 1,
           state: null,
           prices: {}
-        }
+        },
       }
 
       $scope.priceBeforeTaxes = function () {
@@ -71,17 +111,25 @@ appControllers
       $scope.computePrices = function () {
         $scope.data.cart.prices = {}
         
+        MonitorService.log($scope.data.cart)
+        .then(function(result) {
+          console.log("Monitor:", result)
+        }, function (error) {
+          console.error(error);
+        })
         $.each($scope.data.pricingEngines, function (_, engine) {
-          PricingService.price(engine,
+            PricingService.price(engine,
               $scope.data.cart.product.price,
               $scope.data.cart.quantity,
               $scope.data.cart.state)
             .then(function (result) {
-              console.info("Price:", result)
+              console.log("Price:", result)
               $scope.data.cart.prices[engine.id] = result
+              MonitorService.logPrice(engine,result)
             }, function (error) {
               console.error(error);
               $scope.data.cart.prices[engine.id] = "Error:" + error.error + ", Status:" + error.status
+              MonitorService.logPrice(engine,0)
             })
         })
       }
@@ -97,6 +145,19 @@ appControllers
       });
 
   }])
+
+  .controller('DashboardController', ['$scope', 'MonitorService',
+  function ($scope, MonitorService) {
+    $scope.data = {
+        monitor: {}
+    }
+    MonitorService.load().then(function (monitor) {
+      console.log("Found monitor", monitor);
+      $scope.data.monitor = monitor;
+    });
+  }])
+
+
 
 
 var app = angular.module('app', ['appControllers', 'appServices']);
